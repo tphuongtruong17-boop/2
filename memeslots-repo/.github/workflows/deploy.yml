@@ -1,0 +1,81 @@
+name: 🚀 Deploy Factory to OP_NET
+
+on:
+  workflow_dispatch:
+    inputs:
+      network:
+        description: 'Network to deploy to'
+        required: true
+        default: 'testnet'
+        type: choice
+        options:
+          - testnet
+          - mainnet
+      treasury:
+        description: 'Treasury address (để trống = dùng địa chỉ ví deploy)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  deploy:
+    name: Deploy MemeFactoryV2
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # ── 3. Cài đặt & Build (Dùng file package.json ở gốc) ──────────────────
+      - name: Install Dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Build WASM contracts
+        run: |
+          mkdir -p build
+          npm run build:all
+
+      - name: Verify WASM files exist
+        run: |
+          ls -lh build/*.wasm
+          echo "✅ WASM files ready in build/ folder"
+
+      # ── 4. Deploy Factory (Dùng script deploy-factory.mjs ở gốc) ──────────
+      - name: Deploy MemeFactoryV2
+        id: deploy
+        env:
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          NETWORK: ${{ inputs.network }}
+          TREASURY: ${{ inputs.treasury }}
+        run: |
+          # Chạy trực tiếp vì file nằm ở gốc, không cần working-directory
+          node deploy-factory.mjs
+
+      # ── 5. Cập nhật mã nguồn và Push ──────────────────────────────────────
+      - name: Commit updated index.html
+        run: |
+          git config user.name  "GitHub Actions"
+          git config user.email "actions@github.com"
+          # Cập nhật index.html (giả sử file nằm ở gốc)
+          git add index.html 
+          # Chỉ commit nếu có thay đổi
+          git diff --staged --quiet || git commit -m "🚀 Deploy: Factory (${{ inputs.network }})"
+          git push
+
+      - name: Deployment summary
+        run: |
+          echo "## 🚀 Factory Deployed!" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Network | ${{ inputs.network }} |" >> $GITHUB_STEP_SUMMARY
+          echo "Kiểm tra Transaction trên Explorer của OP_NET." >> $GITHUB_STEP_SUMMARY
