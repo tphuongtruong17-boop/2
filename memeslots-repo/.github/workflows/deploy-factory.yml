@@ -1,6 +1,4 @@
 name: 🚀 Deploy Factory to OP_NET
-name: 🚀 Deploy Factory to OP_NET
-
 on:
 <<<<<<< HEAD
   workflow_dispatch:
