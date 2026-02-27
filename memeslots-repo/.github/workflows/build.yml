@@ -1,0 +1,55 @@
+name: 🔨 Build Contracts
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'contracts/**'
+      - '.github/workflows/build.yml'
+  pull_request:
+    paths:
+      - 'contracts/**'
+  workflow_dispatch:   # cho phép chạy thủ công từ tab Actions
+
+jobs:
+  build:
+    name: Build WASM
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: contracts/package-lock.json
+
+      - name: Install dependencies
+        working-directory: contracts
+        run: npm install
+
+      - name: Build all contracts
+        working-directory: contracts
+        run: npm run build:all
+
+      - name: Show WASM sizes
+        working-directory: contracts
+        run: |
+          echo "=== WASM File Sizes ==="
+          ls -lh build/*.wasm || echo "No .wasm files found"
+
+      - name: Upload WASM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasm-contracts
+          path: contracts/build/*.wasm
+          retention-days: 30
+
+      - name: Cache WASM for deploy job
+        uses: actions/cache@v4
+        with:
+          path: contracts/build
+          key: wasm-${{ github.sha }}
