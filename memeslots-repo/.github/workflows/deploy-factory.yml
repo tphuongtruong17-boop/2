@@ -1,7 +1,7 @@
 name: 🚀 Deploy Factory to OP_NET
 
 on:
-  workflow_dispatch:   # Chạy thủ công — nhấn nút trong tab Actions
+  workflow_dispatch:
     inputs:
       network:
         description: 'Network to deploy to'
@@ -16,83 +16,66 @@ on:
         required: false
         default: ''
 
-# Bảo mật: chỉ cho phép chạy từ branch main
 permissions:
-  contents: write   # để commit factory address vào index.html
+  contents: write
   actions: read
 
 jobs:
   deploy:
     name: Deploy MemeFactoryV2
     runs-on: ubuntu-latest
-    environment: ${{ inputs.network }}   # dùng GitHub Environments nếu muốn approval
 
     steps:
-      # ── 1. Checkout code ──────────────────────────────────────────────────
       - name: Checkout
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # ── 2. Setup Node.js ──────────────────────────────────────────────────
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      # ── 3. Build contracts (nếu chưa có WASM) ────────────────────────────
-      - name: Install contract dependencies
-        working-directory: contracts
-        run: npm install
+      # ── 3. Cài đặt & Build (Dùng file package.json ở gốc) ──────────────────
+      - name: Install Dependencies
+        run: npm install --legacy-peer-deps
 
       - name: Build WASM contracts
-        working-directory: contracts
-        run: npm run build:all
+        run: |
+          mkdir -p build
+          npm run build:all
 
       - name: Verify WASM files exist
         run: |
-          ls -lh contracts/build/*.wasm
-          echo "✅ WASM files ready"
+          ls -lh build/*.wasm
+          echo "✅ WASM files ready in build/ folder"
 
-      # ── 4. Install deploy script dependencies ────────────────────────────
-      - name: Install deploy dependencies
-        working-directory: scripts
-        run: npm install
-
-      # ── 5. Deploy Factory ─────────────────────────────────────────────────
+      # ── 4. Deploy Factory (Dùng script deploy-factory.mjs ở gốc) ──────────
       - name: Deploy MemeFactoryV2
         id: deploy
-        working-directory: scripts
         env:
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
-          NETWORK:     ${{ inputs.network }}
-          TREASURY:    ${{ inputs.treasury }}
-        run: node deploy-factory.mjs
+          NETWORK: ${{ inputs.network }}
+          TREASURY: ${{ inputs.treasury }}
+        run: |
+          # Chạy trực tiếp vì file nằm ở gốc, không cần working-directory
+          node deploy-factory.mjs
 
-      # ── 6. Commit factory address vào index.html ─────────────────────────
+      # ── 5. Cập nhật mã nguồn và Push ──────────────────────────────────────
       - name: Commit updated index.html
         run: |
           git config user.name  "GitHub Actions"
           git config user.email "actions@github.com"
-          git add web/index.html scripts/deployed.json
-          git diff --staged --quiet || git commit -m "🚀 Deploy: Factory ${{ steps.deploy.outputs.factory_address }} (${{ inputs.network }})"
+          # Cập nhật index.html (giả sử file nằm ở gốc)
+          git add index.html 
+          # Chỉ commit nếu có thay đổi
+          git diff --staged --quiet || git commit -m "🚀 Deploy: Factory (${{ inputs.network }})"
           git push
 
-      # ── 7. Print summary ──────────────────────────────────────────────────
       - name: Deployment summary
         run: |
           echo "## 🚀 Factory Deployed!" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| Network | ${{ inputs.network }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Factory Address | \`${{ steps.deploy.outputs.factory_address }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "index.html đã được tự động cập nhật với địa chỉ factory mới." >> $GITHUB_STEP_SUMMARY
-
-      # ── 8. Upload deployed.json as artifact ──────────────────────────────
-      - name: Upload deployment record
-        uses: actions/upload-artifact@v4
-        with:
-          name: deployed-${{ inputs.network }}-${{ github.run_number }}
-          path: scripts/deployed.json
+          echo "Kiểm tra Transaction trên Explorer của OP_NET." >> $GITHUB_STEP_SUMMARY
