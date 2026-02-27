@@ -1,6 +1,13 @@
 name: 🚀 Deploy Factory to OP_NET
 
 on:
+  workflow_dispatch:   # Dòng này tạo ra nút "Run workflow" màu xanh
+    inputs:
+      network:
+        description: 'Network to deploy to'
+        required: true
+        default: 'testnet'
+on:
   workflow_dispatch:
     inputs:
       network:
