@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       network:
-        description: 'Network'
+        description: 'Network to deploy to'
         required: true
         default: 'testnet'
         type: choice
