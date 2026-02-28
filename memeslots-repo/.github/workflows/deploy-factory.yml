@@ -1,0 +1,47 @@
+name: Deploy Factory to OP_NET
+
+on:
+  workflow_dispatch:
+    inputs:
+      network:
+        description: 'Network (testnet or mainnet)'
+        required: true
+        default: 'testnet'
+        type: choice
+        options:
+          - testnet
+          - mainnet
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build WASM contracts
+        working-directory: contracts
+        run: npm ci && npm run build:all
+
+      - name: Deploy MemeFactoryV2
+        working-directory: scripts
+        env:
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          NETWORK: ${{ inputs.network }}
+        run: npm ci && node deploy-factory.mjs
+
+      - name: Commit factory address back to repo
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add web/index.html scripts/deployed.json || true
+          git diff --staged --quiet || git commit -m "chore: update factory address [skip ci]"
+          git push
